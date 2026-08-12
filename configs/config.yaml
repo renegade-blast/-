@@ -1,0 +1,53 @@
+# AWD 比赛配置文件
+# 请根据实际比赛环境修改
+
+# ============ 攻击配置 ============
+ATTACK_CONFIG:
+  # 监听端口 (用于反弹 Shell)
+  listen_port: 4444
+  # 攻击超时 (秒)
+  timeout: 10
+  # 最大并发线程
+  max_workers: 20
+  # 目标端口列表
+  target_ports:
+    - 22
+    - 80
+    - 443
+    - 3306
+    - 6379
+    - 8080
+
+# ============ 防御配置 ============
+DEFENSE_CONFIG:
+  # 监控间隔 (秒)
+  monitor_interval: 30
+  # 需要监控的文件
+  watch_files:
+    - /etc/passwd
+    - /etc/shadow
+    - /etc/crontab
+    - /var/www/html/config.php
+  # 禁止的进程名
+  kill_processes:
+    - minerd
+    - xmrig
+    - cryptonight
+    - kinsing
+    - kdevtmpfsi
+  # 弱密码列表
+  weak_passwords:
+    - root
+    - admin
+    - 123456
+    - password
+    - awd
+
+# ============ Payload 配置 ============
+PAYLOAD_CONFIG:
+  # Webshell 密码
+  webshell_password: awd2024
+  # 反弹 Shell IP (本机 IP)
+  callback_ip: 127.0.0.1
+  # 反弹 Shell 端口
+  callback_port: 4444
