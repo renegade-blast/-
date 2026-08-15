@@ -5,7 +5,8 @@
 TARGET_HOST="192-168-1-169.pvp7574.bugku.cn"
 SSH_PORT="2222"
 SSH_USER="team10"
-SSH_PASS="30699d29a54fae629e5d08bffc29b4c8"
+# 密码从环境变量注入, 防止明文入库: AWD_SSH_PASS=xxx bash auto_defense.sh
+SSH_PASS="${AWD_SSH_PASS:-}"
 
 ACTION=${1:-start}
 REMOTE_DIR="/app"
@@ -122,14 +123,14 @@ while true; do
 
     # 修改管理员密码
     HASH=$(php -r "echo md5(md5('$NEW_ADMIN').'$SALT');" 2>/dev/null)
-    mysql -ucms -p"$NEW_DB" -h127.0.0.1 cms -e "UPDATE xyh_admin SET password='$HASH', encrypt='$SALT' WHERE username='admin';" 2>/dev/null
+    mysql -ucms -p"$NEW_DB" -h127.0.0.1 cms -e "UPDATE xy_admin SET password='$HASH', encrypt='$SALT' WHERE username='admin';" 2>/dev/null
     if [ $? -eq 0 ]; then
         echo "[$TS] [+] 管理员密码已更新: $NEW_ADMIN (盐: $SALT)" >> $LOG
     fi
 
     # 修改 Cookie 密钥
     COOKIE=$(GEN_PASS)
-    mysql -ucms -p"$NEW_DB" -h127.0.0.1 cms -e "UPDATE xyh_config SET value='$COOKIE' WHERE name='CFG_COOKIE_ENCODE';" 2>/dev/null
+    mysql -ucms -p"$NEW_DB" -h127.0.0.1 cms -e "UPDATE xy_config SET value='$COOKIE' WHERE name='CFG_COOKIE_ENCODE';" 2>/dev/null
 
     # 清理 session 强制重新登录
     rm -rf /tmp/sess_* /var/lib/php5/sess_* 2>/dev/null
@@ -247,9 +248,9 @@ case "$ACTION" in
             mysql -ucms -p\"\$CUR_DB\" -h127.0.0.1 -e \"SET PASSWORD FOR 'cms'@'localhost' = PASSWORD('\$NEW_DB'); SET PASSWORD FOR 'cms'@'%' = PASSWORD('\$NEW_DB'); FLUSH PRIVILEGES;\" 2>/dev/null
             sed -i \"s|'DB_PWD' => '.*'|'DB_PWD' => '\$NEW_DB'|\" /app/App/Common/Conf/db.php
             HASH=\$(php -r \"echo md5(md5('\$NEW_ADMIN').'\$SALT');\" 2>/dev/null)
-            mysql -ucms -p\"\$NEW_DB\" -h127.0.0.1 cms -e \"UPDATE xyh_admin SET password='\$HASH', encrypt='\$SALT' WHERE username='admin';\" 2>/dev/null
+            mysql -ucms -p\"\$NEW_DB\" -h127.0.0.1 cms -e \"UPDATE xy_admin SET password='\$HASH', encrypt='\$SALT' WHERE username='admin';\" 2>/dev/null
             COOKIE=\$(GEN_PASS)
-            mysql -ucms -p\"\$NEW_DB\" -h127.0.0.1 cms -e \"UPDATE xyh_config SET value='\$COOKIE' WHERE name='CFG_COOKIE_ENCODE';\" 2>/dev/null
+            mysql -ucms -p\"\$NEW_DB\" -h127.0.0.1 cms -e \"UPDATE xy_config SET value='\$COOKIE' WHERE name='CFG_COOKIE_ENCODE';\" 2>/dev/null
             rm -rf /tmp/sess_* /var/lib/php5/sess_* 2>/dev/null
             echo '=== 新密码 ==='
             echo \"DB: \$NEW_DB\"

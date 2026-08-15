@@ -272,12 +272,13 @@ class FlagProtector:
         """加密保护 flag 文件"""
         print(f"\n[*] 加密 flag (方法: {method})")
 
-        flag_content, _ = self.read_flag()
+        flag_content, flag_path = self.read_flag()
         if not flag_content:
             print("  [!] 无法读取 flag")
             return False
 
         print(f"  [*] 原始 flag: {flag_content}")
+        print(f"  [*] flag 路径: {flag_path}")
 
         # 备份原始 flag
         backup_path = os.path.join(self.backup_dir, f'flag_backup_{int(time.time())}')

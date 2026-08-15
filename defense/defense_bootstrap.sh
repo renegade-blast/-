@@ -124,9 +124,19 @@ python3 \$IPFW generate htaccess --out /app/.htaccess 2>/dev/null || true
 # 生成: iptables 脚本
 python3 \$IPFW generate iptables --out /tmp/awd_ipfw_rules.sh 2>/dev/null || true
 chmod +x /tmp/awd_ipfw_rules.sh 2>/dev/null
-# 尝试应用 iptables (需要 root 权限, 失败不影响 WAF 层)
-echo ---应用 iptables 规则---
-bash /tmp/awd_ipfw_rules.sh 2>&1 | tail -3 || echo \"   iptables 需要更高权限, 降级用 WAF + htaccess 层即可\"
+# 安全阀: 应用 iptables (默认 deny) 前, 必须确认白名单已含 SSH 管理机 IP
+# 否则会把自己 SSH 也封断导致失联!
+echo ---安全检查: 白名单是否已含管理机IP---
+SSH_IN_WL=\$(python3 \$IPFW check \"'"$SSH_CLIENT_IP"'\" 2>/dev/null | grep -c "ALLOW")
+if [ \"\$SSH_IN_WL\" -ge 1 ]; then
+  echo \"  [安全] 管理机 IP '$SSH_CLIENT_IP' 已在白名单 (ALLOW), 可以应用 iptables\"
+  echo ---应用 iptables 规则---
+  bash /tmp/awd_ipfw_rules.sh 2>&1 | tail -3 || echo \"   iptables 需要更高权限, 降级用 WAF + htaccess 层即可\"
+else
+  echo \"  [!!!] 管理机 IP '$SSH_CLIENT_IP' 未在 ALLOW 白名单! 为防止误封失联, 跳过 iptables 应用。\"
+  echo \"  [!!!] 默认 deny 未启用 L1 层, 仅 WAF/htaccess 层生效。\"
+  echo \"  [!!!] 如需启用: 先 python3 /tmp/ip_firewall.py add white <管理机IP> 再手动 bash /tmp/awd_ipfw_rules.sh\"
+fi
 
 echo ---白名单摘要---
 python3 \$IPFW list | head -20
@@ -241,7 +251,7 @@ chmod +x /tmp/awd_auto_defense.sh
 
 # 安装 crontab
 (crontab -l 2>/dev/null; echo \"*/1 * * * * /tmp/awd_auto_defense.sh >> /tmp/awd_defense.log 2>&1\") | crontab -
-(crontab -l 2>/dev/null; echo \"*/5 * * * * python3 /tmp/flag_protector.py /flag encrypt 2>&1 >> /tmp/awd_defense.log\") | crontab -
+(crontab -l 2>/dev/null; echo "*/5 * * * * python3 /tmp/flag_protector.py protect aes >> /tmp/awd_defense.log 2>&1") | crontab -
 # ⭐ 每5分钟增量备份 (只打包最近10分钟变更的文件, 极快)
 (crontab -l 2>/dev/null; echo \"*/5 * * * * AWD_BACKUP_DIR=/tmp/awd_backup AWD_WEB_ROOT=/app AWD_DB_NAME=xyhcms AWD_DB_USER=cms bash /tmp/backup.sh inc >> /tmp/awd_defense.log 2>&1\") | crontab -
 # 每小时清理一次旧备份 (只保留最新 20 份, 防磁盘满)

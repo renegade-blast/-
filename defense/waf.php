@@ -52,19 +52,32 @@ class AWD_WAF {
         return self::$instance;
     }
 
+    /**
+     * 读取配置: 兼容 CLI(getenv) 与 mod_php/.htaccess(SetEnv -> $_SERVER)
+     */
+    private static function cfg($key, $default = null) {
+        $v = getenv($key);
+        if ($v !== false && $v !== '') {
+            return $v;
+        }
+        if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+            return $_SERVER[$key];
+        }
+        return $default;
+    }
+
     private function __construct() {
-        $this->mode = getenv('AWD_WAF_MODE') ?: (defined('AWD_WAF_MODE') ? AWD_WAF_MODE : 'block');
-        $this->logFile = getenv('AWD_WAF_LOG') ?: '/tmp/awd_waf.log';
-        $ipfwDir = rtrim(getenv('AWD_IPFW_DIR') ?: (defined('AWD_IPFW_DIR') ? AWD_IPFW_DIR : '/tmp/awd_ipfw'), '/');
+        $this->mode = self::cfg('AWD_WAF_MODE', (defined('AWD_WAF_MODE') ? AWD_WAF_MODE : 'block'));
+        $this->logFile = self::cfg('AWD_WAF_LOG', '/tmp/awd_waf.log');
+        $ipfwDir = rtrim(self::cfg('AWD_IPFW_DIR', (defined('AWD_IPFW_DIR') ? AWD_IPFW_DIR : '/tmp/awd_ipfw')), '/');
         $this->banLogFile = $ipfwDir . '/ban.log';
         $this->ipfwStateDir = $ipfwDir . '/state';
         @mkdir($ipfwDir, 0755, true);
         @mkdir($this->ipfwStateDir, 0755, true);
 
-        $this->autoBan = (getenv('AWD_WAF_AUTOBAN') === false || getenv('AWD_WAF_AUTOBAN') === '1'
-                          || (defined('AWD_WAF_AUTOBAN') && AWD_WAF_AUTOBAN));
-        $this->defaultPolicy = (getenv('AWD_WAF_DEFAULT_POLICY')
-                                ?: (defined('AWD_WAF_DEFAULT_POLICY') ? AWD_WAF_DEFAULT_POLICY : 'deny'));
+        $this->autoBan = (self::cfg('AWD_WAF_AUTOBAN', '1') === '1');
+        $this->defaultPolicy = self::cfg('AWD_WAF_DEFAULT_POLICY',
+                                         (defined('AWD_WAF_DEFAULT_POLICY') ? AWD_WAF_DEFAULT_POLICY : 'deny'));
 
         // ========= IP 规则加载: 优先级 1) 外部 ip_firewall.php =========
         $extFile = $ipfwDir . '/ip_firewall.php';
@@ -84,11 +97,11 @@ class AWD_WAF {
         }
 
         // ========= 优先级 2) 环境变量 AWD_WAF_WHITELIST_IP =========
-        $wl = getenv('AWD_WAF_WHITELIST_IP');
+        $wl = self::cfg('AWD_WAF_WHITELIST_IP');
         if ($wl) {
             $this->whitelistIP = array_merge($this->whitelistIP, array_map('trim', explode(',', $wl)));
         }
-        $bl = getenv('AWD_WAF_BLACKLIST_IP');
+        $bl = self::cfg('AWD_WAF_BLACKLIST_IP');
         if ($bl) {
             $this->blacklistIP = array_merge($this->blacklistIP, array_map('trim', explode(',', $bl)));
         }
@@ -431,12 +444,12 @@ class AWD_WAF {
             'COOKIE' => $_COOKIE,
             'REQUEST' => $_REQUEST,
             'SERVER' => [
-                'HTTP_USER_AGENT' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'HTTP_REFERER' => $_SERVER['HTTP_REFERER'] ?? '',
-                'HTTP_X_FORWARDED_FOR' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
-                'QUERY_STRING' => $_SERVER['QUERY_STRING'] ?? '',
-                'REQUEST_URI' => $_SERVER['REQUEST_URI'] ?? '',
-                'PATH_INFO' => $_SERVER['PATH_INFO'] ?? '',
+                'HTTP_USER_AGENT' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+                'HTTP_REFERER' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
+                'HTTP_X_FORWARDED_FOR' => isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : '',
+                'QUERY_STRING' => isset($_SERVER['QUERY_STRING']) ? $_SERVER['QUERY_STRING'] : '',
+                'REQUEST_URI' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '',
+                'PATH_INFO' => isset($_SERVER['PATH_INFO']) ? $_SERVER['PATH_INFO'] : '',
             ],
             'FILES' => [],
         ];
@@ -445,10 +458,10 @@ class AWD_WAF {
         if (!empty($_FILES)) {
             foreach ($_FILES as $key => $file) {
                 $this->request_data['FILES'][$key] = [
-                    'name' => $file['name'] ?? '',
-                    'type' => $file['type'] ?? '',
-                    'tmp_name' => $file['tmp_name'] ?? '',
-                    'size' => $file['size'] ?? 0,
+                    'name' => isset($file['name']) ? $file['name'] : '',
+                    'type' => isset($file['type']) ? $file['type'] : '',
+                    'tmp_name' => isset($file['tmp_name']) ? $file['tmp_name'] : '',
+                    'size' => isset($file['size']) ? $file['size'] : 0,
                 ];
             }
         }
@@ -498,7 +511,7 @@ class AWD_WAF {
 
         if ($this->blockedCount > 0 && $this->mode === 'block') {
             $ip = $this->getClientIP();
-            $this->logBan($ip, 'waf_rule_hit:' . ($this->lastHitRule ?? 'unknown'));
+            $this->logBan($ip, 'waf_rule_hit:' . (isset($this->lastHitRule) ? $this->lastHitRule : 'unknown'));
             if ($this->autoBan) {
                 $this->autoBanIP($ip, 'waf_rule_hit');
             }
@@ -548,7 +561,9 @@ class AWD_WAF {
      * CIDR 匹配 (支持 IPv4 / IPv6)
      */
     private function cidrMatch($ip, $cidr) {
-        [$net, $mask] = explode('/', $cidr, 2) + [1 => 32];
+        $_parts = explode('/', $cidr, 2);
+        $net = $_parts[0];
+        $mask = (isset($_parts[1]) && $_parts[1] !== '') ? $_parts[1] : 32;
         $mask = (int)$mask;
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)
             && filter_var($net, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
@@ -662,9 +677,9 @@ class AWD_WAF {
             'source' => $source,
             'data' => mb_substr($data, 0, 500),
             'pattern' => $pattern,
-            'url' => $_SERVER['REQUEST_URI'] ?? '',
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-            'method' => $_SERVER['REQUEST_METHOD'] ?? '',
+            'url' => isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '',
+            'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
+            'method' => isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '',
         ];
 
         $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE) . "\n";
@@ -692,11 +707,12 @@ class AWD_WAF {
         $ip = $this->getClientIP();
         $time = date('Y-m-d H:i:s');
 
-        $reasonText = [
+        $_reasonMap = [
             'waf_ip_not_in_whitelist' => 'IP 不在白名单中 (默认 deny 策略)',
             'waf_ip_in_blacklist'     => 'IP 命中黑名单',
             'waf_rule_hit'            => '请求内容命中 WAF 攻击特征 (' . htmlspecialchars($this->lastHitRule) . ')',
-        ][$reason] ?? htmlspecialchars($reason);
+        ];
+        $reasonText = isset($_reasonMap[$reason]) ? $_reasonMap[$reason] : htmlspecialchars($reason);
 
         $title = ($this->ipBlocked || strpos($reason, 'ip_') !== false) ? '403 IP Blocked (AWD IP Firewall)' : '403 Forbidden (AWD WAF)';
 
@@ -753,7 +769,7 @@ class AWD_WAF {
             }
         }
 
-        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '0.0.0.0';
     }
 
     /**
@@ -777,8 +793,8 @@ class AWD_WAF {
             foreach ($logs as $line) {
                 $entry = json_decode($line, true);
                 if ($entry) {
-                    $type = $entry['rule'] ?? 'unknown';
-                    $byType[$type] = ($byType[$type] ?? 0) + 1;
+                    $type = isset($entry['rule']) ? $entry['rule'] : 'unknown';
+                    $byType[$type] = (isset($byType[$type]) ? $byType[$type] : 0) + 1;
                 }
             }
             $stats['by_type'] = $byType;

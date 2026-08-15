@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 venv/
 env/
+ocr_venv/
 
 # 运行日志与临时文件
 logs/
@@ -15,8 +16,12 @@ logs/
 
 # 靶机/凭据等比赛专属敏感信息（按需加入）
 configs/targets.txt
+configs/competition.conf
 *.secrets
 .env
+
+# 靶机源码快照（含二进制与图片素材, 不入库）
+archive/
 
 # 系统/编辑器
 .DS_Store
